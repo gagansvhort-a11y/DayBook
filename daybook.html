@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Daybook</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F5F3EE;
+    --paper-alt:#EDE9DF;
+    --card:#FFFEFC;
+    --ink:#24261F;
+    --ink-soft:#6B6D5F;
+    --line:#DDD8C9;
+    --teal:#1F5B54;
+    --teal-soft:#DCE8E4;
+    --brass:#B08D57;
+    --brass-soft:#F1E7D3;
+    --brick:#A63D40;
+    --brick-soft:#F3DEDB;
+    --sage:#4C7A5A;
+    --sage-soft:#E1EADD;
+    --shadow: 0 1px 2px rgba(36,38,31,0.04), 0 6px 20px rgba(36,38,31,0.06);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  ::selection{background:var(--brass-soft);}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important; transition-duration:0.001ms !important;}
+  }
+
+  .app{
+    display:flex;
+    min-height:100vh;
+    max-width:1180px;
+    margin:0 auto;
+  }
+
+  /* ---------- Spine / nav ---------- */
+  .spine{
+    width:78px;
+    flex-shrink:0;
+    padding:28px 0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+  }
+  .spine-mark{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:26px;
+    color:var(--ink);
+    margin-bottom:22px;
+    writing-mode:vertical-rl;
+    text-orientation:mixed;
+    letter-spacing:1px;
+  }
+  .tab{
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+    padding:14px 4px;
+    border:none;
+    background:transparent;
+    cursor:pointer;
+    color:var(--ink-soft);
+    position:relative;
+    border-radius:14px 0 0 14px;
+    margin-right:-1px;
+    transition:background .2s ease, color .2s ease, transform .15s ease;
+    font-family:'Inter',sans-serif;
+  }
+  .tab svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.6;}
+  .tab span{font-size:11px;letter-spacing:.02em;font-weight:500;}
+  .tab:hover{color:var(--ink); transform:translateX(2px);}
+  .tab.active{
+    background:var(--card);
+    color:var(--ink);
+    box-shadow: -6px 0 16px rgba(36,38,31,0.05);
+  }
+  .tab.active[data-tab="notes"]{color:var(--brass);}
+  .tab.active[data-tab="journal"]{color:var(--teal);}
+  .tab.active[data-tab="tasks"]{color:var(--sage);}
+  .tab.active[data-tab="reminders"]{color:var(--brick);}
+  .tab .dot{
+    position:absolute; top:8px; right:10px;
+    width:6px;height:6px;border-radius:50%;
+    background:var(--brick);
+    display:none;
+  }
+  .tab .dot.show{display:block;}
+
+  /* ---------- Main ---------- */
+  main{
+    flex:1;
+    background:var(--card);
+    border-radius:22px 0 0 22px;
+    padding:40px 48px 60px;
+    min-width:0;
+  }
+  header.topbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    margin-bottom:34px;
+    flex-wrap:wrap;
+    gap:16px;
+  }
+  .greeting h1{
+    font-family:'Fraunces',serif;
+    font-weight:500;
+    font-style:italic;
+    font-size:32px;
+    margin:0 0 4px;
+    color:var(--ink);
+  }
+  .greeting .date{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    letter-spacing:.03em;
+  }
+  .stats{
+    display:flex;
+    gap:22px;
+  }
+  .stat{
+    text-align:right;
+  }
+  .stat b{
+    display:block;
+    font-family:'Fraunces',serif;
+    font-size:22px;
+    font-weight:600;
+  }
+  .stat span{
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:var(--ink-soft);
+  }
+
+  .section{display:none;}
+  .section.active{display:block; animation:fadein .35s ease;}
+  @keyframes fadein{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+  .section-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:18px;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .section-head h2{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:20px;
+    margin:0;
+  }
+  .btn{
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:13px;
+    border:none;
+    cursor:pointer;
+    border-radius:10px;
+    padding:10px 16px;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .btn:active{transform:scale(.97);}
+  .btn-primary{background:var(--ink); color:var(--paper);}
+  .btn-primary:hover{box-shadow:0 4px 14px rgba(36,38,31,0.22);}
+  .btn-ghost{background:transparent; color:var(--ink-soft); padding:8px 10px;}
+  .btn-ghost:hover{color:var(--ink);}
+  .search{
+    display:flex;align-items:center;gap:8px;
+    background:var(--paper-alt);
+    border-radius:10px;
+    padding:8px 12px;
+    flex:1;
+    max-width:260px;
+  }
+  .search input{
+    border:none;background:transparent;outline:none;
+    font-family:'Inter',sans-serif;font-size:13.5px;width:100%;color:var(--ink);
+  }
+  .search svg{width:15px;height:15px;stroke:var(--ink-soft);fill:none;stroke-width:1.8;flex-shrink:0;}
+
+  textarea, input[type=text], input[type=date], input[type=time]{
+    font-family:'Inter',sans-serif;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:10px 12px;
+    font-size:14px;
+    color:var(--ink);
+    background:var(--card);
+    outline:none;
+    transition:border-color .15s ease;
+  }
+  textarea:focus, input:focus{border-color:var(--ink-soft);}
+  input[type=checkbox]{accent-color:var(--sage); width:16px;height:16px;cursor:pointer;}
+
+  .empty{
+    padding:50px 20px;
+    text-align:center;
+    color:var(--ink-soft);
+    border:1.5px dashed var(--line);
+    border-radius:16px;
+  }
+  .empty p.lead{font-family:'Fraunces',serif; font-style:italic; font-size:17px; color:var(--ink); margin:0 0 6px;}
+  .empty p.sub{font-size:13px; margin:0;}
+
+  /* NOTES */
+  .notes-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(230px,1fr));
+    gap:16px;
+  }
+  .note-card{
+    background:var(--paper-alt);
+    border-radius:14px;
+    padding:16px 16px 14px;
+    border-left:3px solid var(--brass);
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    min-height:130px;
+    transition:box-shadow .15s ease, transform .15s ease;
+  }
+  .note-card:hover{box-shadow:var(--shadow); transform:translateY(-2px);}
+  .note-card .n-title{font-weight:600; font-size:14.5px;}
+  .note-card .n-body{font-size:13px; color:var(--ink-soft); line-height:1.5; flex:1; white-space:pre-wrap; overflow:hidden;}
+  .note-card .n-meta{display:flex; justify-content:space-between; align-items:center; font-size:10.5px; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace;}
+  .note-card .n-meta button{background:none;border:none;color:var(--ink-soft);cursor:pointer;padding:2px;}
+  .note-card .n-meta button:hover{color:var(--brick);}
+  .note-editor{
+    background:var(--paper-alt);
+    border-radius:14px;
+    padding:16px;
+    margin-bottom:16px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .note-editor input, .note-editor textarea{width:100%;}
+  .note-editor textarea{min-height:90px; resize:vertical;}
+  .editor-actions{display:flex; gap:8px; justify-content:flex-end;}
+
+  /* JOURNAL */
+  .journal-list{position:relative; padding-left:22px;}
+  .journal-list::before{
+    content:'';
+    position:absolute; left:6px; top:6px; bottom:6px;
+    width:1.5px; background:var(--line);
+  }
+  .journal-entry{
+    position:relative;
+    margin-bottom:22px;
+    background:var(--paper-alt);
+    border-radius:14px;
+    padding:16px 18px;
+  }
+  .journal-entry::before{
+    content:'';
+    position:absolute; left:-22px; top:20px;
+    width:9px; height:9px; border-radius:50%;
+    background:var(--teal);
+    border:2px solid var(--card);
+  }
+  .journal-entry .j-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; flex-wrap:wrap; gap:8px;}
+  .journal-entry .j-date{font-family:'Fraunces',serif; font-weight:600; font-size:16px;}
+  .journal-entry .j-mood{font-size:11px; padding:3px 9px; border-radius:20px; background:var(--teal-soft); color:var(--teal); font-weight:600;}
+  .journal-entry .j-body{font-size:13.5px; line-height:1.65; color:var(--ink); white-space:pre-wrap;}
+  .journal-entry .j-actions{margin-top:10px; display:flex; gap:10px;}
+  .journal-entry .j-actions button{background:none;border:none;color:var(--ink-soft);font-size:11.5px;cursor:pointer; font-weight:600;}
+  .journal-entry .j-actions button:hover{color:var(--brick);}
+  .mood-picker{display:flex; gap:6px; flex-wrap:wrap;}
+  .mood-chip{
+    font-size:12px; padding:6px 11px; border-radius:20px;
+    border:1px solid var(--line); background:var(--card); cursor:pointer; color:var(--ink-soft);
+  }
+  .mood-chip.selected{background:var(--teal); color:#fff; border-color:var(--teal);}
+
+  /* TASKS */
+  .quick-add{
+    display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap;
+  }
+  .quick-add input[type=text]{flex:1; min-width:160px;}
+  .priority-select{display:flex; gap:6px;}
+  .p-chip{
+    font-size:11.5px; padding:8px 10px; border-radius:8px; border:1px solid var(--line);
+    background:var(--card); cursor:pointer; color:var(--ink-soft); font-weight:600;
+  }
+  .p-chip.selected[data-p="low"]{background:var(--sage-soft); color:var(--sage); border-color:var(--sage);}
+  .p-chip.selected[data-p="medium"]{background:var(--brass-soft); color:var(--brass); border-color:var(--brass);}
+  .p-chip.selected[data-p="high"]{background:var(--brick-soft); color:var(--brick); border-color:var(--brick);}
+  .task-group{margin-bottom:22px;}
+  .task-group h3{
+    font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft);
+    margin:0 0 10px; font-weight:700;
+  }
+  .task-row{
+    display:flex; align-items:center; gap:12px;
+    background:var(--paper-alt); border-radius:12px; padding:11px 14px; margin-bottom:8px;
+  }
+  .task-row .t-text{flex:1; font-size:14px;}
+  .task-row.done .t-text{text-decoration:line-through; color:var(--ink-soft);}
+  .task-row .t-due{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-soft);}
+  .task-row .t-priority{
+    font-size:10px; padding:3px 8px; border-radius:20px; font-weight:700; text-transform:uppercase; letter-spacing:.03em;
+  }
+  .t-priority.low{background:var(--sage-soft); color:var(--sage);}
+  .t-priority.medium{background:var(--brass-soft); color:var(--brass);}
+  .t-priority.high{background:var(--brick-soft); color:var(--brick);}
+  .task-row button.del{background:none;border:none;color:var(--ink-soft);cursor:pointer;}
+  .task-row button.del:hover{color:var(--brick);}
+
+  /* REMINDERS */
+  .reminder-row{
+    display:flex; align-items:center; gap:14px;
+    background:var(--paper-alt); border-radius:12px; padding:14px 16px; margin-bottom:10px;
+  }
+  .reminder-when{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px; text-align:center; min-width:78px;
+    background:var(--card); border-radius:10px; padding:8px 6px; color:var(--ink-soft);
+  }
+  .reminder-when b{display:block; font-size:15px; color:var(--ink); font-family:'Fraunces',serif;}
+  .reminder-row.overdue .reminder-when{background:var(--brick-soft); color:var(--brick);}
+  .reminder-row.overdue .reminder-when b{color:var(--brick);}
+  .reminder-body{flex:1;}
+  .reminder-title{font-weight:600; font-size:14.5px;}
+  .reminder-note{font-size:12.5px; color:var(--ink-soft); margin-top:2px;}
+  .reminder-tag{font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:20px;}
+  .reminder-tag.upcoming{background:var(--teal-soft); color:var(--teal);}
+  .reminder-tag.overdue{background:var(--brick-soft); color:var(--brick);}
+  .reminder-form{
+    display:grid; grid-template-columns:1.4fr 1fr 1fr auto; gap:8px; margin-bottom:18px;
+  }
+  .reminder-form input[type=text]{grid-column:1/-1;}
+
+  @media (max-width:760px){
+    .app{flex-direction:column;}
+    .spine{
+      flex-direction:row; width:100%; padding:14px 10px; gap:10px; overflow-x:auto;
+    }
+    .spine-mark{writing-mode:horizontal-tb; margin:0 10px 0 0;}
+    .tab{border-radius:12px; flex-direction:row; width:auto; padding:9px 12px;}
+    .tab span{display:none;}
+    main{border-radius:22px 22px 0 0; padding:26px 20px 50px;}
+    .reminder-form{grid-template-columns:1fr 1fr;}
+  }
+</style>
+</head>
+<body>
+
+<div class="app" id="appRoot">
+  <nav class="spine">
+    <div class="spine-mark">Daybook</div>
+    <button class="tab active" data-tab="notes">
+      <svg viewBox="0 0 24 24"><path d="M4 4h11l5 5v11H4z"/><path d="M15 4v5h5"/></svg>
+      <span>Notes</span>
+    </button>
+    <button class="tab" data-tab="journal">
+      <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      <span>Journal</span>
+    </button>
+    <button class="tab" data-tab="tasks">
+      <svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>
+      <span>Tasks</span>
+    </button>
+    <button class="tab" data-tab="reminders">
+      <svg viewBox="0 0 24 24"><path d="M12 8v4l3 2"/><circle cx="12" cy="13" r="8"/><path d="M9 2h6"/></svg>
+      <span>Reminders</span>
+      <i class="dot" id="reminderDot"></i>
+    </button>
+  </nav>
+
+  <main>
+    <header class="topbar">
+      <div class="greeting">
+        <h1 id="greetingText">Good day</h1>
+        <div class="date" id="todayDate"></div>
+      </div>
+      <div class="stats">
+        <div class="stat"><b id="statNotes">0</b><span>Notes</span></div>
+        <div class="stat"><b id="statTasks">0</b><span>Open tasks</span></div>
+        <div class="stat"><b id="statReminders">0</b><span>Upcoming</span></div>
+      </div>
+    </header>
+
+    <!-- NOTES -->
+    <section class="section active" id="section-notes">
+      <div class="section-head">
+        <h2>Notes</h2>
+        <div class="search">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" id="noteSearch" placeholder="Search notes...">
+        </div>
+        <button class="btn btn-primary" id="newNoteBtn">+ New note</button>
+      </div>
+      <div id="noteEditorSlot"></div>
+      <div id="notesGrid" class="notes-grid"></div>
+    </section>
+
+    <!-- JOURNAL -->
+    <section class="section" id="section-journal">
+      <div class="section-head">
+        <h2>Journal</h2>
+        <button class="btn btn-primary" id="newJournalBtn">+ New entry</button>
+      </div>
+      <div id="journalEditorSlot"></div>
+      <div id="journalList" class="journal-list"></div>
+    </section>
+
+    <!-- TASKS -->
+    <section class="section" id="section-tasks">
+      <div class="section-head">
+        <h2>Tasks</h2>
+      </div>
+      <div class="quick-add">
+        <input type="text" id="taskInput" placeholder="Add a task and press Enter...">
+        <input type="date" id="taskDue">
+        <div class="priority-select" id="prioritySelect">
+          <button class="p-chip" data-p="low">Low</button>
+          <button class="p-chip selected" data-p="medium">Medium</button>
+          <button class="p-chip" data-p="high">High</button>
+        </div>
+        <button class="btn btn-primary" id="addTaskBtn">Add</button>
+      </div>
+      <div id="tasksArea"></div>
+    </section>
+
+    <!-- REMINDERS -->
+    <section class="section" id="section-reminders">
+      <div class="section-head">
+        <h2>Reminders</h2>
+      </div>
+      <div class="reminder-form">
+        <input type="text" id="reminderTitle" placeholder="Remind me to...">
+        <input type="date" id="reminderDate">
+        <input type="time" id="reminderTime">
+        <button class="btn btn-primary" id="addReminderBtn">Add</button>
+      </div>
+      <div id="remindersArea"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+(function(){
+  const STORAGE_KEY = 'daybook-data-v1';
+  let state = { notes: [], journal: [], tasks: [], reminders: [] };
+
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+
+  function load(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){
+        state = Object.assign({notes:[],journal:[],tasks:[],reminders:[]}, JSON.parse(raw));
+      }
+    }catch(e){
+      console.error('Could not load data', e);
+    }
+    renderAll();
+  }
+
+  let saveTimer = null;
+  function save(){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      try{
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }catch(e){
+        console.error('Could not save', e);
+      }
+    }, 250);
+  }
+
+  // ---------- Tabs ----------
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('section-' + tab.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ---------- Header ----------
+  function renderHeader(){
+    const now = new Date();
+    const hour = now.getHours();
+    const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+    document.getElementById('greetingText').textContent = greeting;
+    document.getElementById('todayDate').textContent = now.toLocaleDateString(undefined, { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+    document.getElementById('statNotes').textContent = state.notes.length;
+    document.getElementById('statTasks').textContent = state.tasks.filter(t => !t.done).length;
+    const upcoming = state.reminders.filter(r => new Date(r.when) >= now).length;
+    document.getElementById('statReminders').textContent = upcoming;
+    const overdue = state.reminders.some(r => new Date(r.when) < now);
+    document.getElementById('reminderDot').classList.toggle('show', overdue);
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // ---------- NOTES ----------
+  let editingNoteId = null;
+  const notesGrid = document.getElementById('notesGrid');
+  const noteEditorSlot = document.getElementById('noteEditorSlot');
+  const noteSearch = document.getElementById('noteSearch');
+
+  document.getElementById('newNoteBtn').addEventListener('click', () => openNoteEditor(null));
+  noteSearch.addEventListener('input', renderNotes);
+
+  function openNoteEditor(note){
+    editingNoteId = note ? note.id : null;
+    noteEditorSlot.innerHTML = `
+      <div class="note-editor">
+        <input type="text" id="noteTitleInput" placeholder="Title" value="${note ? escapeHtml(note.title) : ''}">
+        <textarea id="noteBodyInput" placeholder="Write your note...">${note ? escapeHtml(note.body) : ''}</textarea>
+        <div class="editor-actions">
+          <button class="btn btn-ghost" id="cancelNoteBtn">Cancel</button>
+          <button class="btn btn-primary" id="saveNoteBtn">Save note</button>
+        </div>
+      </div>`;
+    document.getElementById('cancelNoteBtn').addEventListener('click', () => { noteEditorSlot.innerHTML=''; editingNoteId=null; });
+    document.getElementById('saveNoteBtn').addEventListener('click', saveNoteFromEditor);
+    document.getElementById('noteTitleInput').focus();
+  }
+
+  function saveNoteFromEditor(){
+    const title = document.getElementById('noteTitleInput').value.trim();
+    const body = document.getElementById('noteBodyInput').value.trim();
+    if(!title && !body) { noteEditorSlot.innerHTML=''; return; }
+    if(editingNoteId){
+      const n = state.notes.find(n => n.id === editingNoteId);
+      n.title = title || 'Untitled'; n.body = body; n.updated = Date.now();
+    } else {
+      state.notes.unshift({ id: uid(), title: title || 'Untitled', body, updated: Date.now() });
+    }
+    editingNoteId = null;
+    noteEditorSlot.innerHTML = '';
+    save(); renderNotes(); renderHeader();
+  }
+
+  function renderNotes(){
+    const q = noteSearch.value.trim().toLowerCase();
+    const list = state.notes.filter(n => !q || n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q));
+    if(list.length === 0){
+      notesGrid.innerHTML = `<div class="empty" style="grid-column:1/-1"><p class="lead">Nothing here yet</p><p class="sub">Capture a thought before it slips away.</p></div>`;
+      return;
+    }
+    notesGrid.innerHTML = list.map(n => `
+      <div class="note-card" data-id="${n.id}">
+        <div class="n-title">${escapeHtml(n.title)}</div>
+        <div class="n-body">${escapeHtml(n.body)}</div>
+        <div class="n-meta">
+          <span>${new Date(n.updated).toLocaleDateString(undefined,{month:'short',day:'numeric'})}</span>
+          <button class="del" data-id="${n.id}" title="Delete">✕</button>
+        </div>
+      </div>`).join('');
+    notesGrid.querySelectorAll('.note-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        if(e.target.closest('.del')) return;
+        const n = state.notes.find(n => n.id === card.dataset.id);
+        openNoteEditor(n);
+      });
+    });
+    notesGrid.querySelectorAll('.del').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        state.notes = state.notes.filter(n => n.id !== btn.dataset.id);
+        save(); renderNotes(); renderHeader();
+      });
+    });
+  }
+
+  // ---------- JOURNAL ----------
+  const journalList = document.getElementById('journalList');
+  const journalEditorSlot = document.getElementById('journalEditorSlot');
+  const MOODS = ['Calm','Happy','Grateful','Tired','Stressed','Excited'];
+  let editingJournalId = null;
+  let selectedMood = null;
+
+  document.getElementById('newJournalBtn').addEventListener('click', () => openJournalEditor(null));
+
+  function openJournalEditor(entry){
+    editingJournalId = entry ? entry.id : null;
+    selectedMood = entry ? entry.mood : null;
+    journalEditorSlot.innerHTML = `
+      <div class="note-editor">
+        <div class="mood-picker" id="moodPicker">
+          ${MOODS.map(m => `<button type="button" class="mood-chip${selectedMood===m?' selected':''}" data-mood="${m}">${m}</button>`).join('')}
+        </div>
+        <textarea id="journalBodyInput" placeholder="What's on your mind today?" style="min-height:120px;">${entry ? escapeHtml(entry.body) : ''}</textarea>
+        <div class="editor-actions">
+          <button class="btn btn-ghost" id="cancelJournalBtn">Cancel</button>
+          <button class="btn btn-primary" id="saveJournalBtn">Save entry</button>
+        </div>
+      </div>`;
+    document.getElementById('moodPicker').querySelectorAll('.mood-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        selectedMood = selectedMood === chip.dataset.mood ? null : chip.dataset.mood;
+        document.getElementById('moodPicker').querySelectorAll('.mood-chip').forEach(c => c.classList.toggle('selected', c.dataset.mood === selectedMood));
+      });
+    });
+    document.getElementById('cancelJournalBtn').addEventListener('click', () => { journalEditorSlot.innerHTML=''; editingJournalId=null; });
+    document.getElementById('saveJournalBtn').addEventListener('click', saveJournalFromEditor);
+    document.getElementById('journalBodyInput').focus();
+  }
+
+  function saveJournalFromEditor(){
+    const body = document.getElementById('journalBodyInput').value.trim();
+    if(!body){ journalEditorSlot.innerHTML=''; return; }
+    if(editingJournalId){
+      const e = state.journal.find(e => e.id === editingJournalId);
+      e.body = body; e.mood = selectedMood;
+    } else {
+      state.journal.unshift({ id: uid(), body, mood: selectedMood, date: Date.now() });
+    }
+    editingJournalId = null;
+    journalEditorSlot.innerHTML = '';
+    save(); renderJournal(); renderHeader();
+  }
+
+  function renderJournal(){
+    if(state.journal.length === 0){
+      journalList.innerHTML = `<div class="empty"><p class="lead">Your journal is empty</p><p class="sub">Write your first entry — future you will thank you.</p></div>`;
+      return;
+    }
+    journalList.innerHTML = state.journal.map(e => `
+      <div class="journal-entry" data-id="${e.id}">
+        <div class="j-head">
+          <div class="j-date">${new Date(e.date).toLocaleDateString(undefined,{weekday:'short', month:'short', day:'numeric', year:'numeric'})}</div>
+          ${e.mood ? `<div class="j-mood">${e.mood}</div>` : ''}
+        </div>
+        <div class="j-body">${escapeHtml(e.body)}</div>
+        <div class="j-actions">
+          <button class="edit-j" data-id="${e.id}">Edit</button>
+          <button class="del-j" data-id="${e.id}">Delete</button>
+        </div>
+      </div>`).join('');
+    journalList.querySelectorAll('.edit-j').forEach(btn => btn.addEventListener('click', () => {
+      openJournalEditor(state.journal.find(e => e.id === btn.dataset.id));
+    }));
+    journalList.querySelectorAll('.del-j').forEach(btn => btn.addEventListener('click', () => {
+      state.journal = state.journal.filter(e => e.id !== btn.dataset.id);
+      save(); renderJournal(); renderHeader();
+    }));
+  }
+
+  // ---------- TASKS ----------
+  const tasksArea = document.getElementById('tasksArea');
+  const taskInput = document.getElementById('taskInput');
+  const taskDue = document.getElementById('taskDue');
+  let selectedPriority = 'medium';
+
+  document.getElementById('prioritySelect').querySelectorAll('.p-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      selectedPriority = chip.dataset.p;
+      document.querySelectorAll('.p-chip').forEach(c => c.classList.toggle('selected', c === chip));
+    });
+  });
+  document.getElementById('addTaskBtn').addEventListener('click', addTask);
+  taskInput.addEventListener('keydown', e => { if(e.key === 'Enter') addTask(); });
+
+  function addTask(){
+    const text = taskInput.value.trim();
+    if(!text) return;
+    state.tasks.unshift({ id: uid(), text, done:false, due: taskDue.value || null, priority: selectedPriority, created: Date.now() });
+    taskInput.value = ''; taskDue.value = '';
+    save(); renderTasks(); renderHeader();
+  }
+
+  function renderTasks(){
+    const open = state.tasks.filter(t => !t.done);
+    const done = state.tasks.filter(t => t.done);
+    if(state.tasks.length === 0){
+      tasksArea.innerHTML = `<div class="empty"><p class="lead">No tasks yet</p><p class="sub">Add your first task above to get moving.</p></div>`;
+      return;
+    }
+    const rowHtml = t => `
+      <div class="task-row ${t.done?'done':''}" data-id="${t.id}">
+        <input type="checkbox" ${t.done?'checked':''} class="t-check" data-id="${t.id}">
+        <div class="t-text">${escapeHtml(t.text)}</div>
+        ${t.due ? `<div class="t-due">${new Date(t.due+'T00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'})}</div>` : ''}
+        <div class="t-priority ${t.priority}">${t.priority}</div>
+        <button class="del" data-id="${t.id}">✕</button>
+      </div>`;
+    let html = '';
+    if(open.length){
+      html += `<div class="task-group"><h3>Open · ${open.length}</h3>${open.map(rowHtml).join('')}</div>`;
+    }
+    if(done.length){
+      html += `<div class="task-group"><h3>Completed · ${done.length}</h3>${done.map(rowHtml).join('')}</div>`;
+    }
+    tasksArea.innerHTML = html;
+    tasksArea.querySelectorAll('.t-check').forEach(cb => cb.addEventListener('change', () => {
+      const t = state.tasks.find(t => t.id === cb.dataset.id);
+      t.done = cb.checked;
+      save(); renderTasks(); renderHeader();
+    }));
+    tasksArea.querySelectorAll('.del').forEach(btn => btn.addEventListener('click', () => {
+      state.tasks = state.tasks.filter(t => t.id !== btn.dataset.id);
+      save(); renderTasks(); renderHeader();
+    }));
+  }
+
+  // ---------- REMINDERS ----------
+  const remindersArea = document.getElementById('remindersArea');
+  document.getElementById('addReminderBtn').addEventListener('click', addReminder);
+
+  function addReminder(){
+    const title = document.getElementById('reminderTitle').value.trim();
+    const date = document.getElementById('reminderDate').value;
+    const time = document.getElementById('reminderTime').value || '09:00';
+    if(!title || !date) return;
+    const when = new Date(date + 'T' + time).getTime();
+    state.reminders.push({ id: uid(), title, when });
+    state.reminders.sort((a,b) => a.when - b.when);
+    document.getElementById('reminderTitle').value = '';
+    document.getElementById('reminderDate').value = '';
+    document.getElementById('reminderTime').value = '';
+    save(); renderReminders(); renderHeader();
+  }
+
+  function timeUntil(ts){
+    const diff = ts - Date.now();
+    const abs = Math.abs(diff);
+    const mins = Math.round(abs/60000);
+    const hours = Math.round(abs/3600000);
+    const days = Math.round(abs/86400000);
+    let label;
+    if(mins < 60) label = mins + 'm';
+    else if(hours < 24) label = hours + 'h';
+    else label = days + 'd';
+    return diff < 0 ? `Overdue ${label}` : `in ${label}`;
+  }
+
+  function renderReminders(){
+    if(state.reminders.length === 0){
+      remindersArea.innerHTML = `<div class="empty"><p class="lead">No reminders set</p><p class="sub">Add one above so nothing important slips through.</p></div>`;
+      return;
+    }
+    const now = Date.now();
+    remindersArea.innerHTML = state.reminders.map(r => {
+      const overdue = r.when < now;
+      const d = new Date(r.when);
+      return `
+      <div class="reminder-row ${overdue?'overdue':''}" data-id="${r.id}">
+        <div class="reminder-when"><b>${d.toLocaleDateString(undefined,{month:'short',day:'numeric'})}</b>${d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}</div>
+        <div class="reminder-body">
+          <div class="reminder-title">${escapeHtml(r.title)}</div>
+          <div class="reminder-note">${timeUntil(r.when)}</div>
+        </div>
+        <span class="reminder-tag ${overdue?'overdue':'upcoming'}">${overdue?'Overdue':'Upcoming'}</span>
+        <button class="del" data-id="${r.id}" style="background:none;border:none;color:var(--ink-soft);cursor:pointer;">✕</button>
+      </div>`;
+    }).join('');
+    remindersArea.querySelectorAll('.del').forEach(btn => btn.addEventListener('click', () => {
+      state.reminders = state.reminders.filter(r => r.id !== btn.dataset.id);
+      save(); renderReminders(); renderHeader();
+    }));
+  }
+
+  function renderAll(){
+    renderHeader();
+    renderNotes();
+    renderJournal();
+    renderTasks();
+    renderReminders();
+  }
+
+  // refresh header / reminder countdowns periodically
+  setInterval(() => { renderHeader(); if(document.getElementById('section-reminders').classList.contains('active')) renderReminders(); }, 60000);
+
+  load();
+})();
+</script>
+</body>
+</html>
