@@ -357,6 +357,28 @@
   }
   .reminder-form input[type=text]{grid-column:1/-1;}
 
+  .auth-gate{
+    position:fixed; inset:0; z-index:100;
+    background:var(--paper);
+    display:flex; align-items:center; justify-content:center;
+    padding:20px;
+  }
+  .auth-gate.hidden{display:none;}
+  .auth-card{
+    background:var(--card); border-radius:18px; padding:30px 28px;
+    width:100%; max-width:340px; box-shadow:var(--shadow);
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .auth-card input{width:100%;}
+  .user-badge{
+    display:flex; align-items:center; gap:10px; font-size:12px; color:var(--ink-soft);
+  }
+  .user-badge button{
+    background:none; border:none; color:var(--ink-soft); text-decoration:underline;
+    cursor:pointer; font-size:12px; font-family:'Inter',sans-serif;
+  }
+  #appRoot.hidden{display:none;}
+
   @media (max-width:760px){
     .app{flex-direction:column;}
     .spine{
@@ -372,7 +394,22 @@
 </head>
 <body>
 
-<div class="app" id="appRoot">
+<div class="auth-gate" id="authGate">
+  <div class="auth-card">
+    <div style="font-family:'Fraunces',serif;font-weight:600;font-size:22px;">Daybook</div>
+    <p style="color:var(--ink-soft);font-size:13px;margin:0 0 6px;">Sign in so your notes, journal, tasks and reminders sync across your devices.</p>
+    <input type="text" id="authEmail" placeholder="Email">
+    <input type="password" id="authPassword" placeholder="Password (6+ characters)">
+    <div id="authError" style="color:var(--brick);font-size:12.5px;min-height:16px;"></div>
+    <div style="display:flex;gap:8px;margin-top:4px;">
+      <button class="btn btn-primary" id="authLoginBtn" style="flex:1;justify-content:center;">Log in</button>
+      <button class="btn btn-ghost" id="authSignupBtn" style="flex:1;justify-content:center;border:1px solid var(--line);">Create account</button>
+    </div>
+    <p style="font-size:11.5px;color:var(--ink-soft);margin:6px 0 0;">New here? Enter an email + password and tap "Create account" once — after that, use "Log in" on every device with the same details.</p>
+  </div>
+</div>
+
+<div class="app hidden" id="appRoot">
   <nav class="spine">
     <div class="spine-mark">Daybook</div>
     <button class="tab active" data-tab="notes">
@@ -406,6 +443,8 @@
         <div class="stat"><b id="statReminders">0</b><span>Upcoming</span></div>
       </div>
     </header>
+    <div class="user-badge"><span id="userEmailLabel"></span><button id="signOutBtn">Sign out</button></div>
+    <div style="height:14px;"></div>
 
     <!-- NOTES -->
     <section class="section active" id="section-notes">
@@ -465,36 +504,110 @@
   </main>
 </div>
 
-<script>
-(function(){
-  const STORAGE_KEY = 'daybook-data-v1';
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+    onAuthStateChanged, signOut
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import {
+    getFirestore, doc, getDoc, setDoc, onSnapshot
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  // ======================================================================
+  // PASTE YOUR OWN FIREBASE CONFIG BELOW (from Firebase Console > Project
+  // Settings > General > Your apps > SDK setup and configuration)
+  // ======================================================================
+  const firebaseConfig = {
+    apiKey: "PASTE_YOUR_API_KEY",
+    authDomain: "PASTE_YOUR_PROJECT_ID.firebaseapp.com",
+    projectId: "PASTE_YOUR_PROJECT_ID",
+    storageBucket: "PASTE_YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "PASTE_YOUR_SENDER_ID",
+    appId: "PASTE_YOUR_APP_ID"
+  };
+
+  const fbApp = initializeApp(firebaseConfig);
+  const auth = getAuth(fbApp);
+  const db = getFirestore(fbApp);
+
   let state = { notes: [], journal: [], tasks: [], reminders: [] };
+  let currentUser = null;
+  let unsubscribeSnapshot = null;
 
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+  const docRef = (userId) => doc(db, 'daybook', userId);
 
-  function load(){
+  async function loadForUser(userId){
     try{
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if(raw){
-        state = Object.assign({notes:[],journal:[],tasks:[],reminders:[]}, JSON.parse(raw));
+      const snap = await getDoc(docRef(userId));
+      if(snap.exists()){
+        state = Object.assign({notes:[],journal:[],tasks:[],reminders:[]}, snap.data());
+      } else {
+        state = { notes: [], journal: [], tasks: [], reminders: [] };
+        await setDoc(docRef(userId), state);
       }
     }catch(e){
       console.error('Could not load data', e);
     }
     renderAll();
+
+    if(unsubscribeSnapshot) unsubscribeSnapshot();
+    unsubscribeSnapshot = onSnapshot(docRef(userId), (snap) => {
+      if(snap.exists()){
+        state = Object.assign({notes:[],journal:[],tasks:[],reminders:[]}, snap.data());
+        renderAll();
+      }
+    });
   }
 
   let saveTimer = null;
   function save(){
+    if(!currentUser) return;
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
+    saveTimer = setTimeout(async () => {
       try{
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        await setDoc(docRef(currentUser.uid), state);
       }catch(e){
         console.error('Could not save', e);
       }
-    }, 250);
+    }, 400);
   }
+
+  // ---------- Auth ----------
+  const authGate = document.getElementById('authGate');
+  const appRoot = document.getElementById('appRoot');
+  const authEmail = document.getElementById('authEmail');
+  const authPassword = document.getElementById('authPassword');
+  const authError = document.getElementById('authError');
+
+  document.getElementById('authSignupBtn').addEventListener('click', async () => {
+    authError.textContent = '';
+    try{
+      await createUserWithEmailAndPassword(auth, authEmail.value.trim(), authPassword.value);
+    }catch(e){ authError.textContent = e.message.replace('Firebase: ',''); }
+  });
+  document.getElementById('authLoginBtn').addEventListener('click', async () => {
+    authError.textContent = '';
+    try{
+      await signInWithEmailAndPassword(auth, authEmail.value.trim(), authPassword.value);
+    }catch(e){ authError.textContent = e.message.replace('Firebase: ',''); }
+  });
+  document.getElementById('signOutBtn').addEventListener('click', () => signOut(auth));
+
+  onAuthStateChanged(auth, (user) => {
+    currentUser = user;
+    if(user){
+      authGate.classList.add('hidden');
+      appRoot.classList.remove('hidden');
+      document.getElementById('userEmailLabel').textContent = user.email;
+      loadForUser(user.uid);
+    } else {
+      appRoot.classList.add('hidden');
+      authGate.classList.remove('hidden');
+      if(unsubscribeSnapshot) unsubscribeSnapshot();
+    }
+  });
 
   // ---------- Tabs ----------
   document.querySelectorAll('.tab').forEach(tab => {
@@ -797,9 +910,6 @@
 
   // refresh header / reminder countdowns periodically
   setInterval(() => { renderHeader(); if(document.getElementById('section-reminders').classList.contains('active')) renderReminders(); }, 60000);
-
-  load();
-})();
 </script>
 </body>
 </html>
